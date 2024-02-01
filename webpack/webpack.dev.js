@@ -1,11 +1,10 @@
-const webpack = require("webpack");
+const path = require("path");
 
 module.exports = {
   mode: "development",
   devtool: "cheap-module-source-map",
-  plugins: [
-    new webpack.DefinePlugin({
-      'process.env.API_URL': JSON.stringify('https://jsonplaceholder.typicode.com')
-    }),
-  ]
+  output: {
+    path: path.resolve(__dirname, "..", "build"),
+    filename: "bundle.js",
+  },
 };

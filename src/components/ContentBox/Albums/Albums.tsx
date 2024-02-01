@@ -22,6 +22,7 @@ import { TabPanel } from '../ContentBox';
 
 export const Albums: FC<{ index: number }> = ({ index }) => {
     const [albums, setAlbums] = useState<Album[]>([]);
+    const [isLoading, setIsLoading] = useState(false)
     const [searchParams, setSearchParams] = useSearchParams();
     const location = useLocation();
 
@@ -41,24 +42,27 @@ export const Albums: FC<{ index: number }> = ({ index }) => {
         return searchParams.get('albumId');
     }, [location]);
 
+    const addPhotosToAlbum = (albumId: number) => {
+        instance.get<Photo[]>(`/photos?albumId=${albumId}`).then((response) => {
+            setAlbums((prevState) =>
+                prevState.map((album) => {
+                    if (album.id === albumId) {
+                        return {
+                            ...album,
+                            photos: response.data,
+                        };
+                    }
+
+                    return album;
+                })
+            );
+        });
+    }
+
     const handlePanelChange = (panelId: number) => (event: React.SyntheticEvent, isExpanded: boolean) => {
         if (isExpanded) {
             searchParams.set('albumId', panelId.toString());
-
-            instance.get<Photo[]>(`/photos?albumId=${panelId}`).then((response) => {
-                setAlbums((prevState) =>
-                    prevState.map((album) => {
-                        if (album.id === panelId) {
-                            return {
-                                ...album,
-                                photos: response.data,
-                            };
-                        }
-
-                        return album;
-                    })
-                );
-            });
+            addPhotosToAlbum(panelId)
         } else {
             searchParams.delete('albumId');
         }
@@ -68,32 +72,24 @@ export const Albums: FC<{ index: number }> = ({ index }) => {
 
     useEffect(() => {
         if (currentUser) {
+            setIsLoading(true)
+
             instance.get<AlbumFromServer[]>(`/users/${currentUser}/albums/`).then((response) => {
                 setAlbums(response.data.map((album) => ({ ...album, photos: [] })));
 
                 if (currentAlbum) {
-                    instance.get<Photo[]>(`/photos?albumId=${currentAlbum}`).then((response) => {
-                        setAlbums((prevState) =>
-                            prevState.map((album) => {
-                                if (album.id.toString() === currentAlbum) {
-                                    return {
-                                        ...album,
-                                        photos: response.data,
-                                    };
-                                }
-
-                                return album;
-                            })
-                        );
-                    });
+                    addPhotosToAlbum(+currentAlbum)
                 }
-            });
+            })
+                .finally(() => {
+                    setIsLoading(false)
+                });
         }
-    }, [currentUser, currentAlbum]);
+    }, [currentUser]);
 
     return (
         <TabPanel value={tabId} index={index}>
-            {albums.length > 0 &&
+            {!isLoading && albums.length > 0 &&
                 albums.map((album) => (
                     <Accordion
                         key={album.id}
@@ -123,6 +119,7 @@ export const Albums: FC<{ index: number }> = ({ index }) => {
                         </AccordionDetails>
                     </Accordion>
                 ))}
+            {isLoading && (<Loader/>)}
         </TabPanel>
     );
 };
